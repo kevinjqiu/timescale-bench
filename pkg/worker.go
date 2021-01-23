@@ -1,6 +1,12 @@
 package pkg
 
-import "github.com/sirupsen/logrus"
+import (
+	"crypto/md5"
+	"fmt"
+	"github.com/sirupsen/logrus"
+)
+
+var defaultHasherFactory = md5.New
 
 // WorkerPool represents a pool of worker goroutines
 // It's responsible for routing a query to a specific worker
@@ -9,8 +15,25 @@ type WorkerPool struct {
 	workers    []*Worker
 }
 
-func (wp *WorkerPool) Dispatch(queryParam QueryParam) {
+func (wp *WorkerPool) selectWorker(queryParam QueryParam) *Worker {
+	hostnameHash := queryParam.GetHostnameHashInt(defaultHasherFactory())
+	workerId := int(hostnameHash % uint64(len(wp.workers)))
 
+	return wp.workers[workerId]
+}
+
+func (wp *WorkerPool) Dispatch(queryParam QueryParam) {
+	worker := wp.selectWorker(queryParam)
+	worker.inputChan <- queryParam
+	logrus.Infof("%s is dispatched to worker: %s", queryParam, worker)
+}
+
+func (wp *WorkerPool) Run() {
+	for _, worker := range wp.workers {
+		go worker.Run()
+	}
+
+	select {}
 }
 
 func newWorkerPool(numWorkers int) *WorkerPool {
@@ -34,14 +57,18 @@ type Worker struct {
 	terminateChan chan struct{}
 }
 
+func (w *Worker) String() string {
+	return fmt.Sprintf("<Worker: %d>", w.id)
+}
+
 func (w *Worker) Run() {
 	logger := logrus.WithField("worker", w.id)
 	for {
 		select {
 		case queryParam := <-w.inputChan:
-			logger.Info("Got: %v", queryParam)
+			logger.Infof("Got: %v", queryParam)
 		case err := <-w.errChan:
-			logger.Warn("Encountered error: %v", err)
+			logger.Warnf("Encountered error: %v", err)
 		case <-w.terminateChan:
 			// TODO: display results
 			return

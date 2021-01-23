@@ -3,6 +3,8 @@ package pkg
 import (
 	"github.com/sirupsen/logrus"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 type TimescaleBench struct {
@@ -48,7 +50,12 @@ func (tsb *TimescaleBench) Run() error {
 	errChan := make(chan error)
 	doneChan := make(chan struct{})
 
+	go tsb.workerPool.Run()
+
 	go processQueryParams(inputFile, queryParamChan, errChan, doneChan)
+
+	sigChan := make(chan os.Signal)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGQUIT)
 
 	for {
 		select {
@@ -58,6 +65,8 @@ func (tsb *TimescaleBench) Run() error {
 			logrus.Warnf("Error during parsing query param: %v", err)
 		case <-doneChan:
 			return nil
+		case sig := <-sigChan:
+			logrus.Infof("Received signal %v, terminating...", sig)
 		}
 	}
 }
