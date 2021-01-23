@@ -8,6 +8,7 @@ import (
 )
 
 type TimescaleBench struct {
+	logger     *logrus.Entry
 	inputFile  string
 	workerPool *WorkerPool
 }
@@ -19,12 +20,12 @@ func (tsb *TimescaleBench) getInputFile() (*os.File, error) {
 	)
 
 	if tsb.inputFile == "-" {
-		logrus.Info("Using stdin as input")
+		tsb.logger.Info("Using stdin as input")
 		inputFile = os.Stdin
 	} else {
 		inputFile, err = os.Open(tsb.inputFile)
 		if err != nil {
-			logrus.Errorf("unable to open input file: %v", tsb.inputFile)
+			tsb.logger.Errorf("unable to open input file: %v", tsb.inputFile)
 			return nil, err
 		}
 	}
@@ -33,7 +34,7 @@ func (tsb *TimescaleBench) getInputFile() (*os.File, error) {
 }
 
 func (tsb *TimescaleBench) Run() error {
-	logrus.Info("Starting...")
+	tsb.logger.Info("Starting...")
 
 	inputFile, err := tsb.getInputFile()
 	if err != nil {
@@ -42,7 +43,7 @@ func (tsb *TimescaleBench) Run() error {
 
 	defer func() {
 		if err := inputFile.Close(); err != nil {
-			logrus.Warnf("unable to close file: %v", tsb.inputFile)
+			tsb.logger.Warnf("unable to close file: %v", tsb.inputFile)
 		}
 	}()
 
@@ -62,17 +63,18 @@ func (tsb *TimescaleBench) Run() error {
 		case queryParam := <-queryParamChan:
 			tsb.workerPool.Dispatch(queryParam)
 		case err := <-errChan:
-			logrus.Warnf("Error during parsing query param: %v", err)
+			tsb.logger.Warnf("Error during parsing query param: %v", err)
 		case <-doneChan:
 			return nil
 		case sig := <-sigChan:
-			logrus.Infof("Received signal %v, terminating...", sig)
+			tsb.logger.Infof("Received signal %v, terminating...", sig)
 		}
 	}
 }
 
 func NewTimescaleBench(inputFile string, numWorkers int) *TimescaleBench {
 	tsb := TimescaleBench{
+		logger:     logrus.WithField("component", "TimescaleBench"),
 		inputFile:  inputFile,
 		workerPool: newWorkerPool(numWorkers),
 	}

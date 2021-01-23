@@ -11,6 +11,7 @@ var defaultHasherFactory = md5.New
 // WorkerPool represents a pool of worker goroutines
 // It's responsible for routing a query to a specific worker
 type WorkerPool struct {
+	logger     *logrus.Entry
 	numWorkers int
 	workers    []*Worker
 }
@@ -25,7 +26,7 @@ func (wp *WorkerPool) selectWorker(queryParam QueryParam) *Worker {
 func (wp *WorkerPool) Dispatch(queryParam QueryParam) {
 	worker := wp.selectWorker(queryParam)
 	worker.inputChan <- queryParam
-	logrus.Infof("%s is dispatched to worker: %s", queryParam, worker)
+	wp.logger.Infof("%s is dispatched to worker: %s", queryParam, worker)
 }
 
 func (wp *WorkerPool) Run() {
@@ -38,6 +39,7 @@ func (wp *WorkerPool) Run() {
 
 func newWorkerPool(numWorkers int) *WorkerPool {
 	workerPool := WorkerPool{
+		logger:     logrus.WithField("component", "WorkerPool"),
 		numWorkers: numWorkers,
 		workers:    make([]*Worker, 0, numWorkers),
 	}
@@ -52,6 +54,7 @@ func newWorkerPool(numWorkers int) *WorkerPool {
 // Worker is responsible for receive the QueryParam, time the query execution and aggregate the metrics
 type Worker struct {
 	id            int
+	logger        *logrus.Entry
 	inputChan     chan QueryParam
 	errChan       chan error
 	terminateChan chan struct{}
@@ -62,13 +65,12 @@ func (w *Worker) String() string {
 }
 
 func (w *Worker) Run() {
-	logger := logrus.WithField("worker", w.id)
 	for {
 		select {
 		case queryParam := <-w.inputChan:
-			logger.Infof("Got: %v", queryParam)
+			w.logger.Infof("Got: %v", queryParam)
 		case err := <-w.errChan:
-			logger.Warnf("Encountered error: %v", err)
+			w.logger.Warnf("Encountered error: %v", err)
 		case <-w.terminateChan:
 			// TODO: display results
 			return
@@ -79,6 +81,7 @@ func (w *Worker) Run() {
 func newWorker(id int) *Worker {
 	return &Worker{
 		id:            id,
+		logger:        logrus.WithField("component", fmt.Sprintf("worker-%d", id)),
 		inputChan:     make(chan QueryParam),
 		errChan:       make(chan error),
 		terminateChan: make(chan struct{}),
