@@ -6,8 +6,8 @@ import (
 )
 
 type TimescaleBench struct {
-	inputFile string
-	workers   int
+	inputFile  string
+	workerPool *WorkerPool
 }
 
 func (tsb *TimescaleBench) getInputFile() (*os.File, error) {
@@ -31,6 +31,8 @@ func (tsb *TimescaleBench) getInputFile() (*os.File, error) {
 }
 
 func (tsb *TimescaleBench) Run() error {
+	logrus.Info("Starting...")
+
 	inputFile, err := tsb.getInputFile()
 	if err != nil {
 		return err
@@ -38,23 +40,32 @@ func (tsb *TimescaleBench) Run() error {
 
 	defer func() {
 		if err := inputFile.Close(); err != nil {
-			logrus.Warn("unable to close file: %v", tsb.inputFile)
+			logrus.Warnf("unable to close file: %v", tsb.inputFile)
 		}
 	}()
 
-
 	queryParamChan := make(chan QueryParam)
 	errChan := make(chan error)
+	doneChan := make(chan struct{})
 
-	processQueryParams(inputFile, queryParamChan, errChan)
+	go processQueryParams(inputFile, queryParamChan, errChan, doneChan)
 
-	return nil
+	for {
+		select {
+		case queryParam := <-queryParamChan:
+			tsb.workerPool.Dispatch(queryParam)
+		case err := <-errChan:
+			logrus.Warnf("Error during parsing query param: %v", err)
+		case <-doneChan:
+			return nil
+		}
+	}
 }
 
-func NewTimescaleBench(inputFile string, workers int) *TimescaleBench {
+func NewTimescaleBench(inputFile string, numWorkers int) *TimescaleBench {
 	tsb := TimescaleBench{
-		inputFile: inputFile,
-		workers:   workers,
+		inputFile:  inputFile,
+		workerPool: newWorkerPool(numWorkers),
 	}
 
 	return &tsb

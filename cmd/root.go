@@ -5,6 +5,7 @@ import (
 	"github.com/kevinjqiu/timescale-assignment/pkg"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"os"
 	"strings"
 )
 
@@ -15,6 +16,7 @@ var flags struct {
 }
 
 func initLogging(logLevel string) {
+	logrus.SetOutput(os.Stderr)
 	switch strings.ToLower(logLevel) {
 	case "trace":
 		logrus.SetLevel(logrus.TraceLevel)
