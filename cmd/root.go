@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/kevinjqiu/timescale-assignment/pkg"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"strings"
@@ -43,7 +44,8 @@ func NewRootCommand() *cobra.Command {
 				return fmt.Errorf("bench input file (--input) must be specified")
 			}
 
-			return nil
+			tsb := pkg.NewTimescaleBench(flags.input, flags.workers)
+			return tsb.Run()
 		},
 	}
 
