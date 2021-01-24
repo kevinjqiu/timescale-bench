@@ -31,6 +31,17 @@ func (wp *WorkerPool) StartWorkers(resultsChan chan<- QueryResult) {
 	}
 }
 
+func (wp *WorkerPool) ProcessJobs(jobsChan <-chan Job) BenchmarkResult {
+	resultsMap := newResultMap()
+
+	for job := range jobsChan {
+		wp.Dispatch(job)
+		resultsMap.Set(job.JobID, nil)
+	}
+
+	return resultsMap.Aggregate()
+}
+
 func (wp *WorkerPool) shutdown() {
 	for _, worker := range wp.workers {
 		worker.terminateChan <- struct{}{}

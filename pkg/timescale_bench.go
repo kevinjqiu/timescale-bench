@@ -33,26 +33,8 @@ func (tsb *TimescaleBench) getInputFile() (*os.File, error) {
 	return inputFile, nil
 }
 
-func (tsb *TimescaleBench) Run() error {
-	tsb.logger.Info("Starting...")
-
-	inputFile, err := tsb.getInputFile()
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err := inputFile.Close(); err != nil {
-			tsb.logger.Warnf("unable to close file: %v", tsb.inputFile)
-		}
-	}()
-
-	resultChan := make(chan QueryResult)
-	inputEOFChan := make(chan struct{})
-
-	tsb.workerPool.StartWorkers(resultChan)
-
-	results := newResultMap()
+func (tsb *TimescaleBench) parseQueryParams(inputFile *os.File) <-chan Job {
+	out := make(chan Job)
 
 	go func() {
 		scanner := bufio.NewScanner(inputFile)
@@ -68,31 +50,55 @@ func (tsb *TimescaleBench) Run() error {
 				continue
 			}
 			job := newJob(queryParam)
-			tsb.workerPool.Dispatch(job)
-			results.Set(job.JobID, nil)
+			out <- job
 		}
-		inputEOFChan <- struct{}{}
 	}()
 
-	var finishedInput bool
+	return out
+}
 
-	for {
-		if finishedInput && results.IsDone() {
-			tsb.workerPool.shutdown()
-			break
-		}
+func (tsb *TimescaleBench) Run() error {
+	tsb.logger.Info("Starting...")
 
-		select {
-		case result := <-resultChan:
-			tsb.logger.Debugf("Received %v", result)
-			results.Set(result.JobID, &result)
-		case <-inputEOFChan:
-			finishedInput = true
-		}
+	inputFile, err := tsb.getInputFile()
+	if err != nil {
+		return err
 	}
 
-	ar := results.Aggregate()
-	fmt.Println(ar.Human())
+	defer func() {
+		if err := inputFile.Close(); err != nil {
+			tsb.logger.Warnf("unable to close file: %v", tsb.inputFile)
+		}
+	}()
+
+	resultChan := make(chan QueryResult)
+	//inputEOFChan := make(chan struct{})
+
+	tsb.workerPool.StartWorkers(resultChan)
+	br := tsb.workerPool.ProcessJobs(tsb.parseQueryParams(inputFile))
+	fmt.Println(br.Human())
+
+	//results := newResultMap()
+	//
+	//var finishedInput bool
+	//
+	//for {
+	//	if finishedInput && results.IsDone() {
+	//		tsb.workerPool.shutdown()
+	//		break
+	//	}
+	//
+	//	select {
+	//	case result := <-resultChan:
+	//		tsb.logger.Debugf("Received %v", result)
+	//		results.Set(result.JobID, &result)
+	//	case <-inputEOFChan:
+	//		finishedInput = true
+	//	}
+	//}
+	//
+	//ar := results.Aggregate()
+	//fmt.Println(ar.Human())
 	return nil
 }
 
