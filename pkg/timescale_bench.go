@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"github.com/sirupsen/logrus"
 	"os"
+	"time"
 )
 
 type TimescaleBench struct {
@@ -46,9 +47,9 @@ func (tsb *TimescaleBench) Run() error {
 		}
 	}()
 
-	doneChan := make(chan struct{})
+	resultChan := make(chan time.Duration)
 
-	go tsb.workerPool.Run(doneChan)
+	tsb.workerPool.startWorkers(resultChan)
 
 	scanner := bufio.NewScanner(inputFile)
 	scanner.Split(bufio.ScanLines)
@@ -56,7 +57,7 @@ func (tsb *TimescaleBench) Run() error {
 	scanner.Scan() // skip the header
 	for scanner.Scan() {
 		line := scanner.Text()
-		logrus.Debugf("Got line: %v", line)
+		tsb.logger.Debugf("Got line: %v", line)
 		queryParam, err := parseQueryParam(line)
 		if err != nil {
 			return err
@@ -64,8 +65,15 @@ func (tsb *TimescaleBench) Run() error {
 		tsb.workerPool.dispatch(queryParam)
 	}
 
-	doneChan <- struct{}{}
-	<- doneChan
+	results := make([]time.Duration, 0, 0)
+
+	for {
+		select {
+		case result := <- resultChan:
+			results = append(results, result)
+		}
+	}
+
 	return nil
 }
 
