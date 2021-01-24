@@ -1,13 +1,10 @@
 package pkg
 
 import (
-	"bufio"
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"hash"
-	"os"
 	"strings"
 	"time"
 )
@@ -55,23 +52,4 @@ func parseQueryParam(line string) (QueryParam, error) {
 	}
 
 	return queryParam, nil
-}
-
-func processQueryParams(inputFile *os.File, chanQueryParam chan<- QueryParam, errChan chan<- error, doneChan chan<- struct{}) {
-	scanner := bufio.NewScanner(inputFile)
-	scanner.Split(bufio.ScanLines)
-
-	scanner.Scan() // skip the header
-	for scanner.Scan() {
-		line := scanner.Text()
-		logrus.Debugf("Got line: %v", line)
-		queryParam, err := parseQueryParam(line)
-		if err != nil {
-			errChan <- err
-		} else {
-			chanQueryParam <- queryParam
-		}
-	}
-
-	doneChan <- struct{}{}
 }

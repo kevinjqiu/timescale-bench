@@ -46,7 +46,10 @@ func NewRootCommand() *cobra.Command {
 				return fmt.Errorf("bench input file (--input) must be specified")
 			}
 
-			tsb := pkg.NewTimescaleBench(flags.input, flags.workers)
+			tsb, err := pkg.NewTimescaleBench(flags.input, flags.workers)
+			if err != nil {
+				return err
+			}
 			return tsb.Run()
 		},
 	}

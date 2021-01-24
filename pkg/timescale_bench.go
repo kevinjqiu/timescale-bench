@@ -1,10 +1,9 @@
 package pkg
 
 import (
+	"bufio"
 	"github.com/sirupsen/logrus"
 	"os"
-	"os/signal"
-	"syscall"
 )
 
 type TimescaleBench struct {
@@ -47,37 +46,40 @@ func (tsb *TimescaleBench) Run() error {
 		}
 	}()
 
-	queryParamChan := make(chan QueryParam)
-	errChan := make(chan error)
 	doneChan := make(chan struct{})
 
-	go tsb.workerPool.Run()
+	go tsb.workerPool.Run(doneChan)
 
-	go processQueryParams(inputFile, queryParamChan, errChan, doneChan)
+	scanner := bufio.NewScanner(inputFile)
+	scanner.Split(bufio.ScanLines)
 
-	sigChan := make(chan os.Signal)
-	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGQUIT)
-
-	for {
-		select {
-		case queryParam := <-queryParamChan:
-			tsb.workerPool.Dispatch(queryParam)
-		case err := <-errChan:
-			tsb.logger.Warnf("Error during parsing query param: %v", err)
-		case <-doneChan:
-			return nil
-		case sig := <-sigChan:
-			tsb.logger.Infof("Received signal %v, terminating...", sig)
+	scanner.Scan() // skip the header
+	for scanner.Scan() {
+		line := scanner.Text()
+		logrus.Debugf("Got line: %v", line)
+		queryParam, err := parseQueryParam(line)
+		if err != nil {
+			return err
 		}
+		tsb.workerPool.dispatch(queryParam)
 	}
+
+	doneChan <- struct{}{}
+	<- doneChan
+	return nil
 }
 
-func NewTimescaleBench(inputFile string, numWorkers int) *TimescaleBench {
+func NewTimescaleBench(inputFile string, numWorkers int) (*TimescaleBench, error) {
+	wp, err := newWorkerPool(numWorkers)
+	if err != nil {
+		return nil, err
+	}
+
 	tsb := TimescaleBench{
 		logger:     logrus.WithField("component", "TimescaleBench"),
 		inputFile:  inputFile,
-		workerPool: newWorkerPool(numWorkers),
+		workerPool: wp,
 	}
 
-	return &tsb
+	return &tsb, nil
 }
