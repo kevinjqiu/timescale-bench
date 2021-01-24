@@ -97,6 +97,7 @@ func (tsb *TimescaleBench) Run() error {
 }
 
 func NewTimescaleBench(inputFile string, numWorkers int, dbURL string) (*TimescaleBench, error) {
+	// TODO: validate numWorkers >= 1
 	wp, err := newWorkerPool(numWorkers, dbURL)
 	if err != nil {
 		return nil, err
