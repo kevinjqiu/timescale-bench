@@ -26,10 +26,9 @@ func (wp *WorkerPool) dispatch(job Job) {
 
 func (wp *WorkerPool) startWorkers(resultsChan chan<- QueryResult) {
 	wp.logger.Info("worker pool is running")
-	errChan := make(chan error)
 
 	for _, worker := range wp.workers {
-		go worker.Run(resultsChan, errChan)
+		go worker.Run(resultsChan)
 	}
 }
 

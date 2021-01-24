@@ -57,29 +57,29 @@ GROUP BY 1;
 	})
 
 	if err != nil {
-		return 0, err
+		return duration, err
 	}
 
 	defer rows.Close()
 
 	// TODO: is this needed?
-	//var (
-	//	ts       time.Time
-	//	maxUsage float64
-	//	minUsage float64
-	//)
-	//
-	//for rows.Next() {
-	//	if err := rows.Scan(&ts, &maxUsage, &minUsage); err != nil {
-	//		return 0, err
-	//	}
-	//	w.logger.Debug(ts, maxUsage, minUsage)
-	//}
+	var (
+		ts       time.Time
+		maxUsage float64
+		minUsage float64
+	)
+
+	for rows.Next() {
+		if err := rows.Scan(&ts, &maxUsage, &minUsage); err != nil {
+			return 0, err
+		}
+		w.logger.Debug(ts, maxUsage, minUsage)
+	}
 
 	return duration, nil
 }
 
-func (w *Worker) Run(resultsChan chan<- QueryResult, errChan chan<- error) {
+func (w *Worker) Run(resultsChan chan<- QueryResult) {
 	w.logger.Infof("Running worker %v", w)
 	for {
 		select {
@@ -100,6 +100,7 @@ func (w *Worker) Run(resultsChan chan<- QueryResult, errChan chan<- error) {
 				Result: duration,
 			}
 		case <-w.terminateChan:
+			w.logger.Warn("I'M HERE HERE HERE")
 			w.conn.Close(context.TODO())
 			w.logger.Info("Timescaledb connection closed")
 			w.logger.Info("Termination signal received. Shutting down...")
