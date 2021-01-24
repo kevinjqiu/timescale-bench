@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"github.com/sirupsen/logrus"
 	"os"
-	"time"
 )
 
 type TimescaleBench struct {
@@ -47,34 +46,56 @@ func (tsb *TimescaleBench) Run() error {
 		}
 	}()
 
-	resultChan := make(chan time.Duration)
+	resultChan := make(chan Result)
+	inputEOFChan := make(chan struct{})
 
 	tsb.workerPool.startWorkers(resultChan)
 
-	scanner := bufio.NewScanner(inputFile)
-	scanner.Split(bufio.ScanLines)
+	results := newResultMap()
 
-	scanner.Scan() // skip the header
-	for scanner.Scan() {
-		line := scanner.Text()
-		tsb.logger.Debugf("Got line: %v", line)
-		queryParam, err := parseQueryParam(line)
-		if err != nil {
-			return err
+	go func() {
+		scanner := bufio.NewScanner(inputFile)
+		scanner.Split(bufio.ScanLines)
+
+		scanner.Scan() // skip the header
+		for scanner.Scan() {
+			line := scanner.Text()
+			tsb.logger.Debugf("Got line: %v", line)
+			queryParam, err := parseQueryParam(line)
+			if err != nil {
+				tsb.logger.Warn(err)
+				continue
+			}
+			job := newJob(queryParam)
+			tsb.workerPool.dispatch(job)
+			results.Set(job.JobID, nil)
 		}
-		tsb.workerPool.dispatch(queryParam)
-	}
+		inputEOFChan <- struct{}{}
+	}()
 
-	results := make([]time.Duration, 0, 0)
+	var finishedInput bool
 
 	for {
+		if finishedInput && results.IsDone() {
+			tsb.workerPool.shutdown()
+			break
+		}
+
 		select {
-		case result := <- resultChan:
-			results = append(results, result)
+		case result := <-resultChan:
+			tsb.logger.Debugf("Received %v", result)
+			results.Set(result.JobID, &result)
+		case <-inputEOFChan:
+			finishedInput = true
 		}
 	}
 
+	tsb.displayResults(results)
 	return nil
+}
+
+func (tsb *TimescaleBench) displayResults(results ResultMap) {
+
 }
 
 func NewTimescaleBench(inputFile string, numWorkers int) (*TimescaleBench, error) {

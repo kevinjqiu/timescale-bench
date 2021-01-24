@@ -27,7 +27,7 @@ type Worker struct {
 	id            int
 	conn          *pgx.Conn
 	logger        *logrus.Entry
-	inputChan     chan QueryParam
+	jobChan       chan Job
 	terminateChan chan struct{}
 }
 
@@ -63,34 +63,38 @@ GROUP BY 1;
 	defer rows.Close()
 
 	// TODO: is this needed?
-	var (
-		ts       time.Time
-		maxUsage float64
-		minUsage float64
-	)
-
-	for rows.Next() {
-		if err := rows.Scan(&ts, &maxUsage, &minUsage); err != nil {
-			return 0, err
-		}
-		w.logger.Debug(ts, maxUsage, minUsage)
-	}
+	//var (
+	//	ts       time.Time
+	//	maxUsage float64
+	//	minUsage float64
+	//)
+	//
+	//for rows.Next() {
+	//	if err := rows.Scan(&ts, &maxUsage, &minUsage); err != nil {
+	//		return 0, err
+	//	}
+	//	w.logger.Debug(ts, maxUsage, minUsage)
+	//}
 
 	return duration, nil
 }
 
-func (w *Worker) Run(resultsChan chan<- time.Duration, errChan chan<- error) {
+func (w *Worker) Run(resultsChan chan<- Result, errChan chan<- error) {
 	w.logger.Infof("Running worker %v", w)
 	for {
 		select {
-		case queryParam := <-w.inputChan:
-			w.logger.Debugf("Got: %v", queryParam)
-			duration, err := w.runQuery(queryParam)
+		case job := <-w.jobChan:
+			w.logger.Debugf("Got: %v", job)
+			duration, err := w.runQuery(job.QueryParam)
 			if err != nil {
 				errChan <- err
 				break
 			}
-			resultsChan <- duration
+			w.logger.Debugf("Sent to results chan")
+			resultsChan <- Result{
+				JobID: job.JobID,
+				Result: duration,
+			}
 		case <-w.terminateChan:
 			w.conn.Close(context.TODO())
 			w.logger.Info("Timescaledb connection closed")
@@ -110,7 +114,7 @@ func newWorker(id int) (*Worker, error) {
 		id:            id,
 		conn:          conn,
 		logger:        logrus.WithField("component", fmt.Sprintf("worker-%d", id)),
-		inputChan:     make(chan QueryParam),
+		jobChan:       make(chan Job),
 		terminateChan: make(chan struct{}),
 	}, nil
 }

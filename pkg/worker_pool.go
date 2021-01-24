@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 // WorkerPool represents a pool of worker goroutines
@@ -19,18 +18,24 @@ func (wp *WorkerPool) selectWorker(queryParam QueryParam) *Worker {
 	return wp.workers[workerId]
 }
 
-func (wp *WorkerPool) dispatch(queryParam QueryParam) {
-	worker := wp.selectWorker(queryParam)
-	worker.inputChan <- queryParam
-	wp.logger.Infof("%s is dispatched to worker: %s", queryParam, worker)
+func (wp *WorkerPool) dispatch(job Job) {
+	worker := wp.selectWorker(job.QueryParam)
+	worker.jobChan <- job
+	wp.logger.Infof("%s is dispatched to worker: %s", job, worker)
 }
 
-func (wp *WorkerPool) startWorkers(resultsChan chan<- time.Duration) {
+func (wp *WorkerPool) startWorkers(resultsChan chan<- Result) {
 	wp.logger.Info("worker pool is running")
 	errChan := make(chan error)
 
 	for _, worker := range wp.workers {
 		go worker.Run(resultsChan, errChan)
+	}
+}
+
+func (wp *WorkerPool) shutdown() {
+	for _, worker := range wp.workers {
+		worker.terminateChan <- struct{}{}
 	}
 }
 
