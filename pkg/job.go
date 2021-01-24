@@ -74,19 +74,16 @@ func (rm *QueryResultMap) Aggregate() BenchmarkResult {
 		durations = append(durations, result.Result)
 	}
 
+	if len(durations) == 0 {
+		return ar
+	}
+
 	sort.Sort(durations)
 
 	ar.Min = durations[0]
 	ar.Max = durations[len(durations)-1]
 	ar.Average = time.Duration(int(ar.TotalProcessingTime) / ar.NumQueries)
-
-	if len(durations)%2 == 0 {
-		mid := len(durations) / 2
-		ar.Median = (durations[mid] + durations[mid+1]) / 2
-	} else {
-		mid := len(durations) / 2
-		ar.Median = durations[mid]
-	}
+	ar.Median = median(durations)
 
 	return ar
 }

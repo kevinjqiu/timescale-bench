@@ -1,21 +1,16 @@
 package pkg
 
 import (
-	"github.com/pkg/errors"
 	"time"
 )
 
-func median(sortedDurations []time.Duration) (time.Duration, error) {
-	if len(sortedDurations) == 0 {
-		return 0, errors.New("sortedDurations cannot be empty")
-	}
-
+func median(sortedDurations []time.Duration) time.Duration {
 	size := len(sortedDurations)
 	mid := size / 2
 
 	if size % 2 == 0 {
-		return (sortedDurations[mid-1] + sortedDurations[mid]) / 2, nil
+		return (sortedDurations[mid-1] + sortedDurations[mid]) / 2
 	} else {
-		return sortedDurations[mid], nil
+		return sortedDurations[mid]
 	}
 }
