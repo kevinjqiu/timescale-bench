@@ -21,7 +21,7 @@ func (wp *WorkerPool) selectWorker(queryParam QueryParam) *Worker {
 func (wp *WorkerPool) dispatch(job Job) {
 	worker := wp.selectWorker(job.QueryParam)
 	worker.jobChan <- job
-	wp.logger.Infof("%s is dispatched to worker: %s", job, worker)
+	wp.logger.Debugf("%s is dispatched to worker: %s", job, worker)
 }
 
 func (wp *WorkerPool) startWorkers(resultsChan chan<- Result) {

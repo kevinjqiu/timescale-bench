@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"os"
 )
@@ -90,12 +91,9 @@ func (tsb *TimescaleBench) Run() error {
 		}
 	}
 
-	tsb.displayResults(results)
+	ar := results.Aggregate()
+	fmt.Println(ar.Human())
 	return nil
-}
-
-func (tsb *TimescaleBench) displayResults(results ResultMap) {
-
 }
 
 func NewTimescaleBench(inputFile string, numWorkers int) (*TimescaleBench, error) {
