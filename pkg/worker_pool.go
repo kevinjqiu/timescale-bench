@@ -24,7 +24,7 @@ func (wp *WorkerPool) dispatch(job Job) {
 	wp.logger.Debugf("%s is dispatched to worker: %s", job, worker)
 }
 
-func (wp *WorkerPool) startWorkers(resultsChan chan<- Result) {
+func (wp *WorkerPool) startWorkers(resultsChan chan<- QueryResult) {
 	wp.logger.Info("worker pool is running")
 	errChan := make(chan error)
 

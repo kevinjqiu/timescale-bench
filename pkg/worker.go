@@ -79,7 +79,7 @@ GROUP BY 1;
 	return duration, nil
 }
 
-func (w *Worker) Run(resultsChan chan<- Result, errChan chan<- error) {
+func (w *Worker) Run(resultsChan chan<- QueryResult, errChan chan<- error) {
 	w.logger.Infof("Running worker %v", w)
 	for {
 		select {
@@ -87,11 +87,15 @@ func (w *Worker) Run(resultsChan chan<- Result, errChan chan<- error) {
 			w.logger.Debugf("Got: %v", job)
 			duration, err := w.runQuery(job.QueryParam)
 			if err != nil {
-				errChan <- err
+				w.logger.Warn("Error encountered: ", err)
+				resultsChan <- QueryResult{
+					JobID: job.JobID,
+					Error: err,
+				}
 				break
 			}
 			w.logger.Debugf("Sent to results chan")
-			resultsChan <- Result{
+			resultsChan <- QueryResult{
 				JobID: job.JobID,
 				Result: duration,
 			}

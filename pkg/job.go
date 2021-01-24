@@ -25,27 +25,27 @@ func (d DurationsList) Swap(i, j int) {
 	d[i], d[j] = d[j], d[i]
 }
 
-// Result represents the result of a query
-type Result struct {
+// QueryResult represents the result of a query
+type QueryResult struct {
 	JobID  string
 	Result time.Duration
 	Error  error
 }
 
-// ResultMap is a synchronized map of job ids and their results
-type ResultMap struct {
+// QueryResultMap is a synchronized map of job ids and their results
+type QueryResultMap struct {
 	*sync.Mutex
-	m map[string]*Result
+	m map[string]*QueryResult
 }
 
-func (rm *ResultMap) Set(jobID string, result *Result) {
+func (rm *QueryResultMap) Set(jobID string, result *QueryResult) {
 	rm.Lock()
 	defer rm.Unlock()
 
 	rm.m[jobID] = result
 }
 
-func (rm *ResultMap) IsDone() bool {
+func (rm *QueryResultMap) IsDone() bool {
 	rm.Lock()
 	defer rm.Unlock()
 
@@ -57,8 +57,8 @@ func (rm *ResultMap) IsDone() bool {
 	return true
 }
 
-func (rm *ResultMap) Aggregate() AggregatedResult {
-	var ar AggregatedResult
+func (rm *QueryResultMap) Aggregate() BenchmarkResult {
+	var ar BenchmarkResult
 
 	durations := make(DurationsList, 0, 0)
 
@@ -80,7 +80,7 @@ func (rm *ResultMap) Aggregate() AggregatedResult {
 	ar.Max = durations[len(durations)-1]
 	ar.Average = time.Duration(int(ar.TotalProcessingTime) / ar.NumQueries)
 
-	if len(durations) % 2 == 0 {
+	if len(durations)%2 == 0 {
 		mid := len(durations) / 2
 		ar.Median = (durations[mid] + durations[mid+1]) / 2
 	} else {
@@ -91,10 +91,9 @@ func (rm *ResultMap) Aggregate() AggregatedResult {
 	return ar
 }
 
-func (ar AggregatedResult) Human() string {
+func (ar BenchmarkResult) Human() string {
 	var buffer bytes.Buffer
 
-	buffer.WriteString("Results:\n")
 	buffer.WriteString(fmt.Sprintf("Num Queries: %d\n", ar.NumQueries))
 	buffer.WriteString(fmt.Sprintf("Num Errors: %d\n", ar.NumErrors))
 	buffer.WriteString(fmt.Sprintf("Total Processing time: %v\n", ar.TotalProcessingTime))
@@ -106,10 +105,10 @@ func (ar AggregatedResult) Human() string {
 	return buffer.String()
 }
 
-func newResultMap() ResultMap {
-	return ResultMap{
+func newResultMap() QueryResultMap {
+	return QueryResultMap{
 		Mutex: new(sync.Mutex),
-		m:     make(map[string]*Result),
+		m:     make(map[string]*QueryResult),
 	}
 }
 
@@ -130,7 +129,7 @@ func newJob(queryParam QueryParam) Job {
 	}
 }
 
-type AggregatedResult struct {
+type BenchmarkResult struct {
 	NumQueries          int
 	NumErrors           int
 	TotalProcessingTime time.Duration

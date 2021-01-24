@@ -47,7 +47,7 @@ func (tsb *TimescaleBench) Run() error {
 		}
 	}()
 
-	resultChan := make(chan Result)
+	resultChan := make(chan QueryResult)
 	inputEOFChan := make(chan struct{})
 
 	tsb.workerPool.startWorkers(resultChan)
