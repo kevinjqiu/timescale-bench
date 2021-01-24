@@ -50,7 +50,7 @@ func (tsb *TimescaleBench) Run() error {
 	resultChan := make(chan QueryResult)
 	inputEOFChan := make(chan struct{})
 
-	tsb.workerPool.startWorkers(resultChan)
+	tsb.workerPool.StartWorkers(resultChan)
 
 	results := newResultMap()
 
@@ -68,7 +68,7 @@ func (tsb *TimescaleBench) Run() error {
 				continue
 			}
 			job := newJob(queryParam)
-			tsb.workerPool.dispatch(job)
+			tsb.workerPool.Dispatch(job)
 			results.Set(job.JobID, nil)
 		}
 		inputEOFChan <- struct{}{}
@@ -96,8 +96,8 @@ func (tsb *TimescaleBench) Run() error {
 	return nil
 }
 
-func NewTimescaleBench(inputFile string, numWorkers int) (*TimescaleBench, error) {
-	wp, err := newWorkerPool(numWorkers)
+func NewTimescaleBench(inputFile string, numWorkers int, dbURL string) (*TimescaleBench, error) {
+	wp, err := newWorkerPool(numWorkers, dbURL)
 	if err != nil {
 		return nil, err
 	}

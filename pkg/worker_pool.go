@@ -18,15 +18,14 @@ func (wp *WorkerPool) selectWorker(queryParam QueryParam) *Worker {
 	return wp.workers[workerId]
 }
 
-func (wp *WorkerPool) dispatch(job Job) {
+func (wp *WorkerPool) Dispatch(job Job) {
 	worker := wp.selectWorker(job.QueryParam)
 	worker.jobChan <- job
 	wp.logger.Debugf("%s is dispatched to worker: %s", job, worker)
 }
 
-func (wp *WorkerPool) startWorkers(resultsChan chan<- QueryResult) {
-	wp.logger.Info("worker pool is running")
-
+func (wp *WorkerPool) StartWorkers(resultsChan chan<- QueryResult) {
+	wp.logger.Info("Start the worker pool")
 	for _, worker := range wp.workers {
 		go worker.Run(resultsChan)
 	}
@@ -38,7 +37,7 @@ func (wp *WorkerPool) shutdown() {
 	}
 }
 
-func newWorkerPool(numWorkers int) (*WorkerPool, error) {
+func newWorkerPool(numWorkers int, dbURL string) (*WorkerPool, error) {
 	workerPool := WorkerPool{
 		logger:     logrus.WithField("component", "WorkerPool"),
 		numWorkers: numWorkers,
@@ -46,7 +45,7 @@ func newWorkerPool(numWorkers int) (*WorkerPool, error) {
 	}
 
 	for i := 0; i < numWorkers; i++ {
-		worker, err := newWorker(i)
+		worker, err := newWorker(i, dbURL)
 		if err != nil {
 			return nil, err
 		}

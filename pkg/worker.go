@@ -100,7 +100,6 @@ func (w *Worker) Run(resultsChan chan<- QueryResult) {
 				Result: duration,
 			}
 		case <-w.terminateChan:
-			w.logger.Warn("I'M HERE HERE HERE")
 			w.conn.Close(context.TODO())
 			w.logger.Info("Timescaledb connection closed")
 			w.logger.Info("Termination signal received. Shutting down...")
@@ -109,8 +108,8 @@ func (w *Worker) Run(resultsChan chan<- QueryResult) {
 	}
 }
 
-func newWorker(id int) (*Worker, error) {
-	conn, err := pgx.Connect(context.TODO(), "postgres://postgres:password@localhost:5432/homework")
+func newWorker(id int, dbURL string) (*Worker, error) {
+	conn, err := pgx.Connect(context.TODO(), dbURL)
 	if err != nil {
 		return nil, err
 	}
