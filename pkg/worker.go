@@ -24,12 +24,11 @@ var defaultHasherFactory = md5.New
 
 // Worker is responsible for receive the QueryParam, time the query execution and aggregate the metrics
 type Worker struct {
-	id            int
-	conn          *pgx.Conn
-	logger        *logrus.Entry
-	jobChan       chan Job
-	resultsChan   chan QueryResult
-	terminateChan chan struct{}
+	id          int
+	conn        *pgx.Conn
+	logger      *logrus.Entry
+	jobChan     chan Job
+	resultsChan chan QueryResult
 }
 
 func (w *Worker) String() string {
@@ -96,7 +95,7 @@ func (w *Worker) Run() {
 		}
 		w.logger.Debugf("Sent to results chan")
 		w.resultsChan <- QueryResult{
-			JobID: job.JobID,
+			JobID:  job.JobID,
 			Result: duration,
 		}
 	}
@@ -109,17 +108,16 @@ func (w *Worker) Run() {
 }
 
 func newWorker(id int, dbURL string) (*Worker, error) {
-	conn, err := pgx.Connect(context.TODO(), dbURL)
+	conn, err := pgx.Connect(context.Background(), dbURL)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Worker{
-		id:            id,
-		conn:          conn,
-		logger:        logrus.WithField("component", fmt.Sprintf("worker-%d", id)),
-		jobChan:       make(chan Job),
-		resultsChan:   make(chan QueryResult),
-		terminateChan: make(chan struct{}),
+		id:          id,
+		conn:        conn,
+		logger:      logrus.WithField("component", fmt.Sprintf("worker-%d", id)),
+		jobChan:     make(chan Job),
+		resultsChan: make(chan QueryResult),
 	}, nil
 }

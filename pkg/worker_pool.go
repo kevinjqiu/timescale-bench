@@ -25,7 +25,7 @@ func (wp *WorkerPool) Dispatch(job Job) {
 	wp.logger.Debugf("%s is dispatched to worker: %s", job, worker)
 }
 
-func (wp *WorkerPool) StartWorkers(resultsChan chan<- QueryResult) {
+func (wp *WorkerPool) StartWorkers() {
 	wp.logger.Info("Start the worker pool")
 	for _, worker := range wp.workers {
 		go worker.Run()
@@ -71,12 +71,6 @@ func (wp *WorkerPool) ProcessJobs(jobsChan <-chan Job) BenchmarkResult {
 	}
 
 	return resultsMap.Aggregate()
-}
-
-func (wp *WorkerPool) shutdown() {
-	for _, worker := range wp.workers {
-		worker.terminateChan <- struct{}{}
-	}
 }
 
 func newWorkerPool(numWorkers int, dbURL string) (*WorkerPool, error) {

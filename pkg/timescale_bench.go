@@ -66,40 +66,11 @@ func (tsb *TimescaleBench) Run() error {
 		return err
 	}
 
-	defer func() {
-		if err := inputFile.Close(); err != nil {
-			tsb.logger.Warnf("unable to close file: %v", tsb.inputFile)
-		}
-	}()
+	defer inputFile.Close()
 
-	resultChan := make(chan QueryResult)
-	//inputEOFChan := make(chan struct{})
-
-	tsb.workerPool.StartWorkers(resultChan)
+	tsb.workerPool.StartWorkers()
 	br := tsb.workerPool.ProcessJobs(tsb.parseQueryParams(inputFile))
 	fmt.Println(br.Human())
-
-	//results := newResultMap()
-	//
-	//var finishedInput bool
-	//
-	//for {
-	//	if finishedInput && results.IsDone() {
-	//		tsb.workerPool.shutdown()
-	//		break
-	//	}
-	//
-	//	select {
-	//	case result := <-resultChan:
-	//		tsb.logger.Debugf("Received %v", result)
-	//		results.Set(result.JobID, &result)
-	//	case <-inputEOFChan:
-	//		finishedInput = true
-	//	}
-	//}
-	//
-	//ar := results.Aggregate()
-	//fmt.Println(ar.Human())
 	return nil
 }
 
