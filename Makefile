@@ -20,3 +20,6 @@ init-data:
 	docker exec -it timescaledb sh -c 'psql -U postgres -d homework -c "\COPY cpu_usage FROM /tmp/data/cpu_usage.csv CSV HEADER"'
 
 init: init-copy-file init-db init-data
+
+test:
+	go test -v ./...
