@@ -8,7 +8,7 @@ import (
 
 var outputFormatters = map[string]OutputFormatter{
 	"human": humanReadableOutputFormatter,
-	"json": jsonOutputFormatter,
+	"json":  jsonOutputFormatter,
 }
 
 type OutputFormatter func(BenchmarkResult) (string, error)
