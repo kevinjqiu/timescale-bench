@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"github.com/sirupsen/logrus"
+	"sync"
 )
 
 // WorkerPool represents a pool of worker goroutines
@@ -27,16 +28,46 @@ func (wp *WorkerPool) Dispatch(job Job) {
 func (wp *WorkerPool) StartWorkers(resultsChan chan<- QueryResult) {
 	wp.logger.Info("Start the worker pool")
 	for _, worker := range wp.workers {
-		go worker.Run(resultsChan)
+		go worker.Run()
 	}
 }
 
 func (wp *WorkerPool) ProcessJobs(jobsChan <-chan Job) BenchmarkResult {
 	resultsMap := newResultMap()
 
-	for job := range jobsChan {
-		wp.Dispatch(job)
-		resultsMap.Set(job.JobID, nil)
+	go func() {
+		for job := range jobsChan {
+			wp.Dispatch(job)
+			resultsMap.Set(job.JobID, nil)
+		}
+		wp.logger.Info("Finished dispatching all jobs")
+		for _, w := range wp.workers {
+			close(w.jobChan)
+		}
+	}()
+
+	resultsChan := make(chan QueryResult)
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(wp.workers))
+
+	for _, w := range wp.workers {
+		worker := w
+		go func() {
+			for r := range worker.resultsChan {
+				resultsChan <- r
+			}
+			wg.Done()
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+	}()
+
+	for r := range resultsChan {
+		resultsMap.Set(r.JobID, &r)
 	}
 
 	return resultsMap.Aggregate()

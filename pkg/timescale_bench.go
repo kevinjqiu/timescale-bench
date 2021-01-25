@@ -52,6 +52,7 @@ func (tsb *TimescaleBench) parseQueryParams(inputFile *os.File) <-chan Job {
 			job := newJob(queryParam)
 			out <- job
 		}
+		close(out)
 	}()
 
 	return out
