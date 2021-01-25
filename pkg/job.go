@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"bytes"
 	"fmt"
 	uuid "github.com/satori/go.uuid"
 	"sort"
@@ -74,20 +73,6 @@ func (rm *QueryResultMap) Aggregate() BenchmarkResult {
 	ar.Median = median(durations)
 
 	return ar
-}
-
-func (ar BenchmarkResult) Human() string {
-	var buffer bytes.Buffer
-
-	buffer.WriteString(fmt.Sprintf("Num Queries: %d\n", ar.NumQueries))
-	buffer.WriteString(fmt.Sprintf("Num Errors: %d\n", ar.NumErrors))
-	buffer.WriteString(fmt.Sprintf("Total Processing time: %v\n", ar.TotalProcessingTime))
-	buffer.WriteString(fmt.Sprintf("Min time: %v\n", ar.Min))
-	buffer.WriteString(fmt.Sprintf("Max time: %v\n", ar.Max))
-	buffer.WriteString(fmt.Sprintf("Average time: %v\n", ar.Average))
-	buffer.WriteString(fmt.Sprintf("Median time: %v\n", ar.Median))
-
-	return buffer.String()
 }
 
 func newResultMap() QueryResultMap {

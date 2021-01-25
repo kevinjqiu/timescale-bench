@@ -121,6 +121,23 @@ I chose to use a fan-in/fan-out model using Go channels. An alternative would be
 which require serialization/deserialization of messages being passed in between processes, which I feel is an overkill
 for this particular exercise.
 
+### Core abstractions
+
+There are three types of main abstractions: `TimescaleBench`, `WorkerPool` and `Worker`.
+- `TimescaleBench`  the main harness of the tool, responsible for:
+  - parse the input csv file
+  - for each row in the csv file, create a job with the specified `QueryParam`
+  - send the job to the worker pool
+  - collect the result from the worker pool and print out the formatted aggregation result
+- `WorkerPool`  manager of workers, responsible for:
+  - determine which job is dispatched to which worker
+  - actually dispatch the job to the worker (fan-out)
+  - collect query result from all workers (fan-in)
+- `Worker` the worker goroutine that's responsible for:
+  - connect to the database and execute the queries
+  - time the query execution
+  - post the query result to the results channel to be collected by the worker pool
+
 ### Query Routing
 
 The requirement says the queries for the same host should go to the same worker.
