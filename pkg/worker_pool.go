@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"github.com/sirupsen/logrus"
+	"sync"
 )
 
 // WorkerPool represents a pool of worker goroutines
@@ -24,17 +25,52 @@ func (wp *WorkerPool) Dispatch(job Job) {
 	wp.logger.Debugf("%s is dispatched to worker: %s", job, worker)
 }
 
-func (wp *WorkerPool) StartWorkers(resultsChan chan<- QueryResult) {
+func (wp *WorkerPool) StartWorkers() {
 	wp.logger.Info("Start the worker pool")
 	for _, worker := range wp.workers {
-		go worker.Run(resultsChan)
+		go worker.Run()
 	}
 }
 
-func (wp *WorkerPool) shutdown() {
-	for _, worker := range wp.workers {
-		worker.terminateChan <- struct{}{}
+func (wp *WorkerPool) ProcessJobs(jobsChan <-chan Job) BenchmarkResult {
+	resultsMap := newResultMap()
+
+	go func() {
+		for job := range jobsChan {
+			wp.Dispatch(job)
+			resultsMap.Set(job.JobID, nil)
+		}
+		wp.logger.Info("Finished dispatching all jobs")
+		for _, w := range wp.workers {
+			close(w.jobChan)
+		}
+	}()
+
+	resultsChan := make(chan QueryResult)
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(wp.workers))
+
+	for _, w := range wp.workers {
+		worker := w
+		go func() {
+			for r := range worker.resultsChan {
+				resultsChan <- r
+			}
+			wg.Done()
+		}()
 	}
+
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+	}()
+
+	for r := range resultsChan {
+		resultsMap.Set(r.JobID, &r)
+	}
+
+	return resultsMap.Aggregate()
 }
 
 func newWorkerPool(numWorkers int, dbURL string) (*WorkerPool, error) {

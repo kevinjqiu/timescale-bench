@@ -24,11 +24,11 @@ var defaultHasherFactory = md5.New
 
 // Worker is responsible for receive the QueryParam, time the query execution and aggregate the metrics
 type Worker struct {
-	id            int
-	conn          *pgx.Conn
-	logger        *logrus.Entry
-	jobChan       chan Job
-	terminateChan chan struct{}
+	id          int
+	conn        *pgx.Conn
+	logger      *logrus.Entry
+	jobChan     chan Job
+	resultsChan chan QueryResult
 }
 
 func (w *Worker) String() string {
@@ -79,46 +79,45 @@ GROUP BY 1;
 	return duration, nil
 }
 
-func (w *Worker) Run(resultsChan chan<- QueryResult) {
+func (w *Worker) Run() {
 	w.logger.Infof("Running worker %v", w)
-	for {
-		select {
-		case job := <-w.jobChan:
-			w.logger.Debugf("Got: %v", job)
-			duration, err := w.runQuery(job.QueryParam)
-			if err != nil {
-				w.logger.Warn("Error encountered: ", err)
-				resultsChan <- QueryResult{
-					JobID: job.JobID,
-					Error: err,
-				}
-				break
-			}
-			w.logger.Debugf("Sent to results chan")
-			resultsChan <- QueryResult{
+
+	for job := range w.jobChan {
+		w.logger.Debugf("Got: %v", job)
+		duration, err := w.runQuery(job.QueryParam)
+		if err != nil {
+			w.logger.Warn("Error encountered: ", err)
+			w.resultsChan <- QueryResult{
 				JobID: job.JobID,
-				Result: duration,
+				Error: err,
 			}
-		case <-w.terminateChan:
-			w.conn.Close(context.TODO())
-			w.logger.Info("Timescaledb connection closed")
-			w.logger.Info("Termination signal received. Shutting down...")
-			return
+			break
+		}
+		w.logger.Debugf("Sent to results chan")
+		w.resultsChan <- QueryResult{
+			JobID:  job.JobID,
+			Result: duration,
 		}
 	}
+
+	w.logger.Info("Finished processing jobs")
+	close(w.resultsChan)
+
+	w.logger.Info("Close database connection")
+	w.conn.Close(context.Background())
 }
 
 func newWorker(id int, dbURL string) (*Worker, error) {
-	conn, err := pgx.Connect(context.TODO(), dbURL)
+	conn, err := pgx.Connect(context.Background(), dbURL)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Worker{
-		id:            id,
-		conn:          conn,
-		logger:        logrus.WithField("component", fmt.Sprintf("worker-%d", id)),
-		jobChan:       make(chan Job),
-		terminateChan: make(chan struct{}),
+		id:          id,
+		conn:        conn,
+		logger:      logrus.WithField("component", fmt.Sprintf("worker-%d", id)),
+		jobChan:     make(chan Job),
+		resultsChan: make(chan QueryResult),
 	}, nil
 }

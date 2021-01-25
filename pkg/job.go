@@ -45,18 +45,6 @@ func (rm *QueryResultMap) Set(jobID string, result *QueryResult) {
 	rm.m[jobID] = result
 }
 
-func (rm *QueryResultMap) IsDone() bool {
-	rm.Lock()
-	defer rm.Unlock()
-
-	for _, result := range rm.m {
-		if result == nil {
-			return false
-		}
-	}
-	return true
-}
-
 func (rm *QueryResultMap) Aggregate() BenchmarkResult {
 	var ar BenchmarkResult
 
