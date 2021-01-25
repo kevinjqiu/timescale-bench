@@ -10,10 +10,11 @@ import (
 )
 
 var flags struct {
-	input    string
-	workers  int
-	logLevel string
-	dbURL    string
+	input           string
+	workers         int
+	logLevel        string
+	dbURL           string
+	outputFormatter string
 }
 
 func initLogging(logLevel string) {
@@ -47,7 +48,7 @@ func NewRootCommand() *cobra.Command {
 				return fmt.Errorf("bench input file (--input) must be specified")
 			}
 
-			tsb, err := pkg.NewTimescaleBench(flags.input, flags.workers, flags.dbURL)
+			tsb, err := pkg.NewTimescaleBench(flags.input, flags.workers, flags.dbURL, flags.outputFormatter)
 			if err != nil {
 				return err
 			}
@@ -59,5 +60,6 @@ func NewRootCommand() *cobra.Command {
 	cmd.PersistentFlags().IntVarP(&flags.workers, "workers", "w", 5, "number of workers")
 	cmd.PersistentFlags().StringVarP(&flags.dbURL, "db-url", "d", "postgres://postgres:password@localhost:5432/homework", "the timescaledb url to benchmark against")
 	cmd.PersistentFlags().StringVarP(&flags.logLevel, "log-level", "l", "info", "log level")
+	cmd.PersistentFlags().StringVarP(&flags.outputFormatter, "output-formatter", "o", "human", "output formatter")
 	return &cmd
 }

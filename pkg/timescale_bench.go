@@ -8,9 +8,10 @@ import (
 )
 
 type TimescaleBench struct {
-	logger     *logrus.Entry
-	inputFile  string
-	workerPool *WorkerPool
+	logger          *logrus.Entry
+	inputFile       string
+	workerPool      *WorkerPool
+	outputFormatter OutputFormatter
 }
 
 func (tsb *TimescaleBench) getInputFile() (*os.File, error) {
@@ -70,21 +71,32 @@ func (tsb *TimescaleBench) Run() error {
 
 	tsb.workerPool.StartWorkers()
 	br := tsb.workerPool.ProcessJobs(tsb.parseQueryParams(inputFile))
-	fmt.Println(br.Human())
+
+	output, err := tsb.outputFormatter(br)
+	if err != nil {
+		return err
+	}
+	fmt.Println(output)
 	return nil
 }
 
-func NewTimescaleBench(inputFile string, numWorkers int, dbURL string) (*TimescaleBench, error) {
+func NewTimescaleBench(inputFile string, numWorkers int, dbURL string, formatter string) (*TimescaleBench, error) {
 	// TODO: validate numWorkers >= 1
 	wp, err := newWorkerPool(numWorkers, dbURL)
 	if err != nil {
 		return nil, err
 	}
 
+	outputFormatter, ok := outputFormatters[formatter]
+	if !ok {
+		return nil, fmt.Errorf("unrecognized output formatter: %v", formatter)
+	}
+
 	tsb := TimescaleBench{
-		logger:     logrus.WithField("component", "TimescaleBench"),
-		inputFile:  inputFile,
-		workerPool: wp,
+		logger:          logrus.WithField("component", "TimescaleBench"),
+		inputFile:       inputFile,
+		workerPool:      wp,
+		outputFormatter: outputFormatter,
 	}
 
 	return &tsb, nil
